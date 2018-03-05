@@ -22,8 +22,8 @@ class Task1(object):
 
         :param filename:  The name of the file containing the data
         :return:
-            death_stats: The rows of the data belonging to indicator 'cummulative_deaths'
-            infection_stats: The rows of the data belonging to indicator 'cummulative_cases'
+            death_stats: The rows of the data belonging to indicator 'cumulative_deaths'
+            infection_stats: The rows of the data belonging to indicator 'cumulative_cases'
         """
         with open(filename) as eboladata:
             death_stats = []
@@ -67,7 +67,7 @@ class Task1(object):
 
         # question c
         c_time = time.time()
-        ebola_free_date = datetime.strptime(date_last_death, "%d/%m/%Y") + timedelta(days=42)
+        ebola_free_date = datetime.strptime(date_last_infection, "%d/%m/%Y") + timedelta(days=42)
         ebola_free_date = datetime.strftime(ebola_free_date, "%d/%m/%Y")
         c_time = time.time() -c_time
 
@@ -133,12 +133,12 @@ class Task1(object):
         """
         This method answers the questions related to task 1 except the last two; the peaks are processed
         in a different function.
-        :param stats: The statistics for a given indicator. eg. cummulative deaths
+        :param stats: The statistics for a given indicator. eg. cumulative deaths
         :return:
             date_last_stat: The date when last a significant value was recorded for this indicator
             date_peak_rate: The date for the highest rate recorded for this indicator
             rates: rate of for this indicator value. rate is computed as (cur_cum_val - prev_cum_val )/days
-            where prev_cum_val is the previous observed commulative value of this start. cur_cum_val is
+            where prev_cum_val is the previous observed comulative value of this start. cur_cum_val is
             commulative value of the results we are dealing with
         """
         rates = []

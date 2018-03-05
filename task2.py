@@ -22,7 +22,7 @@ class Task2(object):
          partern: A list containing the values of the sample as a 'pattern'
          complex_data_dic: Is a nested dictionary representation of the complex file. It has the format
             dic ={a:{i:[[date], [val]]}} where 'a' is a locality = country + locality, 'i' is one of the
-            two possible indicators (cummulative_cases, commulative_deaths)
+            two possible indicators (cumulative_cases, commulative_deaths)
         """
         pattern = []
         complex_data_dic = {}
@@ -79,11 +79,11 @@ class Task2(object):
                     kpmindex = self.kmp(pattern=pattern, suffixlist=suffix, vals=vals[1])
                     if kpmindex > -1:
                         start_date = vals[0][kpmindex]
-                        end_date = vals[0][kpmindex + ln_pattern - 1]
-                        return local, indicator, start_date, end_date
+                        return local, indicator, start_date
+
         # If sample is indeed a sample of the data, the pattern will be discovered
         # but in the unlikely event of patterns absence, return dummy text
-        return "No ", "pattern", "found", "in data"
+        return "No ", "pattern", "found"
 
     def task2(self, complex_ebola_file, partial_data_file):
         """
@@ -96,7 +96,7 @@ class Task2(object):
         millseconds_multipler = 1e3
 
         global time_start
-        local, indicator, start_date, end_date = self.mine(complex_ebola_file, partial_data_file)
+        local, indicator, start_date = self.mine(complex_ebola_file, partial_data_file)
 
         filename = "task2_result-"+partial_data_file
 
