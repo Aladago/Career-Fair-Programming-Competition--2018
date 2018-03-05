@@ -1,15 +1,18 @@
 from datetime import datetime, timedelta
+import sys
+import time
 
 """
 Author: Maxwell Aladago '18
 Date: 05/03/2018
+Python Version: 3.5.
 
 """
 
 
 class Task1(object):
     def __init__(self):
-        super(Task1, self)
+        super(Task1, self).__init__()
 
     def read_data(self, filename):
         """
@@ -25,8 +28,8 @@ class Task1(object):
         with open(filename) as eboladata:
             death_stats = []
             infection_stats = []
-            eboladata.__next__()  # skip header
-
+            eboladata.__next__()    # skip header. NOTE: Please change to eboladata.next()
+                                    # python version <= 2.7
             for row in eboladata:
                 row = row.split(",")
                 if row[2].endswith("_deaths"):
@@ -43,28 +46,63 @@ class Task1(object):
         :param filename: The name of the file containing the ebola data. Should have at least 5 columns
         :return:
         """
+        # time.time() returns seconds
+        millseconds_multipler = 1e3
+
+        pre_process_time = time.time()
         death_stats, infection_stats = self.read_data(filename)
+        pre_process_time = time.time() - pre_process_time
 
+        # Questions b, e. Each question will be assigned the average
+        b_e_time = time.time()
         date_last_death, date_peak_drate, death_rates = self.extract_answers(death_stats)
-        date_last_infection, date_peak_irate, infection_rates = self.extract_answers(infection_stats)
+        b_e_time = time.time() - b_e_time
+        b_time = e_time = b_e_time/2
 
+        # Questions a, d. Will find the average and use as timing for each question
+        a_d_time = time.time()
+        date_last_infection, date_peak_irate, infection_rates = self.extract_answers(infection_stats)
+        a_d_time = time.time() - a_d_time
+        a_time = d_time = a_d_time/2
+
+        # question c
+        c_time = time.time()
         ebola_free_date = datetime.strptime(date_last_death, "%d/%m/%Y") + timedelta(days=42)
         ebola_free_date = datetime.strftime(ebola_free_date, "%d/%m/%Y")
-        pdeath_rates = self.process_peak_rates(death_rates)
-        pinfection_rates = self.process_peak_rates(infection_rates)
-        numpeak_deaths = len(pdeath_rates)
-        numpeak_infections = len(pinfection_rates)
+        c_time = time.time() -c_time
 
-        # Write answers to file
+        # question f
+        f_time = time.time()
+        peak_infection_rates_date = self.process_peak_rates(infection_rates)
+        numpeak_infections = len(peak_infection_rates_date)
+        f_time = time.time() - f_time
+
+        # question g
+        g_time = time.time()
+        peak_death_rates_date = self.process_peak_rates(death_rates)
+        numpeak_deaths = len(peak_death_rates_date)
+        g_time = time.time() - g_time
+
+        # organize output into list to shorten the code. They can then be index
+        outputs = [
+            date_last_infection, date_last_death, ebola_free_date, date_peak_irate,
+            date_peak_drate, str(numpeak_infections) + " " + str(peak_infection_rates_date),
+                             str(numpeak_deaths) + " " + str(peak_death_rates_date)
+        ]
+
+        times = [pre_process_time, a_time, b_time, c_time, d_time, e_time, f_time]
+
+        # Write answers to files
         filename = "task1_answers-"+ filename
-        with open(filename, 'wt') as output:
-            output.write(date_last_infection + "\n")
-            output.write(date_last_death + "\n")
-            output.write(ebola_free_date + "\n")
-            output.write(date_peak_irate + "\n")
-            output.write(date_peak_drate + "\n")
-            output.write(str(numpeak_infections) + ": " + str(pinfection_rates) + "\n")
-            output.write(str(numpeak_deaths) + ": " + str(pdeath_rates) + "\n")
+        timingsfile = "task1_times-"+ filename
+
+        with open(filename, 'wt') as outputfile, open(timingsfile,'wt') as timesfile:
+            for i in range(len(outputs)):
+                outputfile.write(outputs[i] + "\n")
+                timesfile.write(str(int((times[i]) * millseconds_multipler)) + "\n")
+
+            # special of overall time of the program
+            timesfile.write(str(int((time.time() - start_time)*millseconds_multipler)) + "\n")
 
     def process_peak_rates(self, rates):
         """
@@ -138,7 +176,15 @@ class Task1(object):
 
 
 if __name__ == '__main__':
+       # program name is at argv[0].
+    try:
+        filename = sys.argv[1]
+    except IndexError:
+        print("Error: The program requires a two strings as arguments")
+        sys.exit()
 
-    # extracted arguments
-    task1 = Task1()
-    task1.task1("")
+    # start timer instantiate class and run programs
+    global start_time
+    start_time = time.time()
+    t1 = Task1()
+    t1.task1(filename)

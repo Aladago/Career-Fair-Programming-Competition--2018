@@ -1,12 +1,16 @@
+import sys # for command line arguments
+import time  # for timing
 """
 Author: Maxwell Aladago '18
 Date: 05/03/2018
+Python Version: 3.5.
+
 """
 
 
 class Task2(object):
     def __init__(self):
-        super().__init__()
+        super(Task2, self).__init__()
 
     def read_data(self, complex_ebola_file, partial_data_file):
         """
@@ -88,6 +92,10 @@ class Task2(object):
         :param partial_data_file: The file containing the partial data
         :return:
         """
+        # time.time() returns seconds
+        millseconds_multipler = 1e3
+
+        global time_start
         local, indicator, start_date, end_date = self.mine(complex_ebola_file, partial_data_file)
 
         filename = "task2_result-"+partial_data_file
@@ -96,6 +104,7 @@ class Task2(object):
             results.write(local + "\n")
             results.write(indicator + "\n")
             results.write(start_date + "\n")
+            results.write(str(int((time.time() - time_start)*millseconds_multipler)) + "\n")
 
     def kmp(self, pattern, suffixlist, vals):
         """
@@ -116,11 +125,18 @@ class Task2(object):
         ln = len(vals)
         ln_pattern = len(pattern)
 
+        # length of text must be greater than or equal to the pattern we are searching for
         if ln_pattern > ln:
             return -1
 
-        i = 0
-        j = 0
+        i = 0   # index for vals
+        j = 0   # index for partern. can never go beyond ln_pattern
+
+        # if there is matches between between pattern and vals, move to next values
+        # otherwise check whether we've already found the pattern in vals
+        # If a mist-match occurred and there's still vals left to search,
+        # get the suffix value of j # cannot be greater than j due to the definition of suffices
+        # start from that suffice and search effectively skipping the suffix at the beginning
         while i < ln:
             if pattern[j] == vals[i]:
                 j += 1
@@ -163,8 +179,17 @@ class Task2(object):
 
 
 if __name__ == '__main__':
-    # retrieve args
+    # program name is at argv[0].
+    try:
+        complex_filename = sys.argv[1]
+        partial_filename = sys.argv[2]
+    except IndexError:
+        print("Error: The program requires a two strings as arguments")
+        sys.exit()
 
-    task2 = Task2()
-    task2.task2("sample_complex_ebola_data.csv", "sample_partial_time_series1.csv")
+    # start timer and instantiate task2 and execute functions.
+    global time_start
+    time_start = time.time()
+    t2 = Task2()
+    t2.task2(complex_filename, partial_filename)
 
