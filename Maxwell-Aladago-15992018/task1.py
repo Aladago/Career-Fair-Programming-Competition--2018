@@ -27,81 +27,66 @@ class Task1(object):
             infection_stats: The rows of the data belonging to indicator 'cumulative_cases'
         """
         with open(filename) as eboladata:
-            death_stats = []
-            infection_stats = []
             eboladata.__next__()  # skip header. NOTE: Please change to eboladata.next()
             # python version <= 2.7
+            death_dates = []
+            death_vals = []
+            infections_dates = []
+            infections_vals = []
             for row in eboladata:
                 row = row.split(",")
                 if row[2].endswith("_deaths"):
-                    death_stats.append([row[3], row[4]])
+                    death_dates.append(row[3])
+                    death_vals.append(int(row[4]))
                 elif row[2].endswith("_cases"):
-                    infection_stats.append([row[3], row[4]])
+                    infections_dates.append(row[3])
+                    infections_vals.append(int(row[4]))
+        return death_dates, death_vals, infections_dates, infections_vals
 
-        return death_stats, infection_stats
-
-    def task1(self, filename):
+    def last_occurrence_date(self, dates, values):
         """
-        This module calls others defined in this module to complete the task.
-        It also writes the required answers to the same directory directory of this file
-        :param filename: The name of the file containing the ebola data. Should have at least 5 columns
+        TThis method finds the occurrence of a given indicator.
+        Since the values are cumulative, the last occurrence of the indicator is
+        the first occurrence of the maximum value in the list
+        :param dates: The recording of the date for that particular indicator
+        :param values: The respective cumulative values
         :return:
+        The date of the last occurrence for the given indicator
         """
-        # time.time() returns seconds
-        millseconds_multipler = 1e3
+        max_cummulative_index = values.index(max(values))
+        return dates[max_cummulative_index]
 
-        pre_process_time = time.time()
-        death_stats, infection_stats = self.read_data(filename)
-        pre_process_time = time.time() - pre_process_time
+    def rates(self, dates, vals):
+        """
+        This method answers the questions related to task 1 except the last two; the peaks are processed
+        in a different function.
+        :param stats: The statistics for a given indicator. eg. cumulative deaths
+        :return:
+            date_last_stat: The date when last a significant value was recorded for this indicator
+            date_peak_rate: The date for the highest rate recorded for this indicator
+            rates: rate of for this indicator value. rate is computed as (cur_cum_val - prev_cum_val )/days
+            where prev_cum_val is the previous observed comulative value of this start. cur_cum_val is
+            commulative value of the results we are dealing with
+        """
+        rates = []
+        peak_rate = 0
+        date_peak_rate = ""
+        for i in range(1, len(vals)):
 
-        # Questions b, e. Each question will be assigned the average
-        b_e_time = time.time()
-        date_last_death, date_peak_drate, death_rates = self.extract_answers(death_stats)
-        b_e_time = time.time() - b_e_time
-        b_time = e_time = b_e_time / 2
+            date = datetime.strptime(dates[i], "%d/%m/%Y")
+            prev_date = datetime.strptime(dates[i - 1], "%d/%m/%Y")
 
-        # Questions a, d. Will find the average and use as timing for each question
-        a_d_time = time.time()
-        date_last_infection, date_peak_irate, infection_rates = self.extract_answers(infection_stats)
-        a_d_time = time.time() - a_d_time
-        a_time = d_time = a_d_time / 2
+            # time subtractions returns a timedelta object. days can be called directly on it
+            recor_interval_days = (date - prev_date).days
+            cur_rate = (vals[i] - vals[i - 1]) / recor_interval_days
 
-        # question c
-        c_time = time.time()
-        ebola_free_date = datetime.strptime(date_last_infection, "%d/%m/%Y") + timedelta(days=42)
-        ebola_free_date = datetime.strftime(ebola_free_date, "%d/%m/%Y")
-        c_time = time.time() - c_time
+            if cur_rate > peak_rate:
+                peak_rate = cur_rate
+                date_peak_rate = prev_date.strftime("%d/%m/%Y") + "-" + dates[i]
 
-        # question f
-        f_time = time.time()
-        peak_infection_rates_date = self.process_peak_rates(infection_rates)
-        numpeak_infections = len(peak_infection_rates_date)
-        f_time = time.time() - f_time
+            rates.append([dates[i], cur_rate])
 
-        # question g        
-        peak_death_rates_date = self.process_peak_rates(death_rates)
-        numpeak_deaths = len(peak_death_rates_date)
-
-        # organize output into list to shorten the code. They can then be index
-        outputs = [
-            date_last_infection, date_last_death, ebola_free_date, date_peak_irate,
-            date_peak_drate, str(numpeak_infections) + " " + str(peak_infection_rates_date),
-                             str(numpeak_deaths) + " " + str(peak_death_rates_date)
-        ]
-
-        times = [pre_process_time, a_time, b_time, c_time, d_time, e_time, f_time]
-
-        # Write answers to files
-        filename = "task1_answers-" + filename
-        timingsfile = "task1_times-" + filename
-
-        with open(filename, 'wt') as outputfile, open(timingsfile, 'wt') as timesfile:
-            for i in range(len(outputs)):
-                outputfile.write(outputs[i] + "\n")
-                timesfile.write(str(int((times[i]) * millseconds_multipler)) + "\n")
-
-            # special of overall time of the program
-            timesfile.write(str(int((time.time() - start_time) * millseconds_multipler)) + "\n")
+        return date_peak_rate, rates
 
     def process_peak_rates(self, rates):
         """
@@ -128,51 +113,76 @@ class Task1(object):
 
         return peaks
 
-    def extract_answers(self, stats):
+
+    def task1(self, filename):
         """
-        This method answers the questions related to task 1 except the last two; the peaks are processed
-        in a different function.
-        :param stats: The statistics for a given indicator. eg. cumulative deaths
+        This module calls others defined in this module to complete the task.
+        It also writes the required answers to the same directory directory of this file
+        :param filename: The name of the file containing the ebola data. Should have at least 5 columns
         :return:
-            date_last_stat: The date when last a significant value was recorded for this indicator
-            date_peak_rate: The date for the highest rate recorded for this indicator
-            rates: rate of for this indicator value. rate is computed as (cur_cum_val - prev_cum_val )/days
-            where prev_cum_val is the previous observed comulative value of this start. cur_cum_val is
-            commulative value of the results we are dealing with
         """
-        rates = []
-        val_last_stat = int(stats[0][1])
-        date_last_stat = stats[0][0]
+        # time.time() returns seconds
+        pre_process_time = time.time()
+        death_dates, death_vals, infection_dates, infection_vals = self.read_data(filename)
+        pre_process_time = time.time() - pre_process_time
 
-        peak_rate = 0
-        date_peak_rate = ""
+        # Question a
+        a_time = time.time()
+        date_last_infection = self.last_occurrence_date(infection_dates, infection_vals)
+        a_time = time.time() - a_time
 
-        prev_record_date = datetime.strptime(date_last_stat, "%d/%m/%Y")
-        prev_record_value = val_last_stat
+        # Questions b.
+        b_time = time.time()
+        date_last_death = self.last_occurrence_date(death_dates, death_vals)
+        b_time = time.time() - b_time
 
-        for record in range(1, len(stats)):
-            date_curstat = stats[record][0]
-            val_curstat = int(stats[record][1])
+        # question c
+        c_time = time.time()
+        ebola_free_date = datetime.strptime(date_last_infection, "%d/%m/%Y") + timedelta(days=42)
+        ebola_free_date = datetime.strftime(ebola_free_date, "%d/%m/%Y")
+        c_time = time.time() - c_time
 
-            if val_curstat > val_last_stat:
-                val_last_stat = val_curstat
-                date_last_stat = date_curstat
+        # Question d
+        d_time = time.time()
+        date_peak_irate, infection_rates = self.rates(infection_dates, infection_vals)
+        d_time = time.time() - d_time
 
-            d_stat = datetime.strptime(date_curstat, "%d/%m/%Y")
-            # time subtractions returns a timedelta object. days can be called directly on it
-            recor_interval_days = (d_stat - prev_record_date).days
-            cur_rate = (val_curstat - prev_record_value) / recor_interval_days
+        # Question e
+        e_time = time.time()
+        date_peak_drate, death_rates = self.rates(death_dates, death_vals)
+        e_time = time.time() - e_time
 
-            if cur_rate > peak_rate:
-                peak_rate = cur_rate
-                date_peak_rate = prev_record_date.strftime("%d/%m/%Y") + "-" + date_curstat
+        # Question f
+        f_time = time.time()
+        peak_infection_rates_date = self.process_peak_rates(infection_rates)
+        numpeak_infections = len(peak_infection_rates_date)
+        f_time = time.time() - f_time
 
-            # update values
-            rates.append([date_curstat, cur_rate])
-            prev_record_date = d_stat
-            prev_record_value = val_curstat
+        # question g
+        peak_death_rates_date = self.process_peak_rates(death_rates)
+        numpeak_deaths = len(peak_death_rates_date)
 
-        return date_last_stat, date_peak_rate, rates
+        # organize output into list to shorten the code. They can then be index
+        outputs = [
+            date_last_infection, date_last_death, ebola_free_date, date_peak_irate,
+            date_peak_drate, str(numpeak_infections) + "\t" + ", ".join(peak_infection_rates_date),
+                             str(numpeak_deaths) + "\t" + ", ".join(peak_death_rates_date)
+        ]
+
+        times = [pre_process_time, a_time, b_time, c_time, d_time, e_time, f_time]
+
+        # Write answers to files
+        filename = "task1_answers-" + filename
+        timingsfile = "task1_times-" + filename
+
+        mills = 1e3
+        with open(filename, 'wt') as outputfile, open(timingsfile, 'wt') as timesfile:
+            for i in range(len(outputs)):
+                outputfile.write(outputs[i] + "\n")
+                timesfile.write(str((times[i]) * mills) + "\n")
+
+            # special of overall time of the program
+            timesfile.write(str((time.time() - start_time) * mills) + "\n")
 
 
 if __name__ == '__main__':

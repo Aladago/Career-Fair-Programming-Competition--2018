@@ -330,19 +330,19 @@ class Task2(object):
         :param partial_data_file: The file containing the partial data
         :return:
         """
-        # time.time() returns seconds
-        millseconds_multipler = 1e3
 
         global time_start
         local, indicator, start_date = self.mine(complex_ebola_file, partial_data_file)
 
         filename = "task2_result-" + partial_data_file
 
+        # time.time() returns seconds
+        mills = 1e3
         with open(filename, 'wt') as results:
             results.write(local + "\n")
             results.write(indicator + "\n")
             results.write(start_date + "\n")
-            results.write(str(int((time.time() - time_start) * millseconds_multipler)) + "\n")
+            results.write(str((time.time() - time_start) * mills) + "\n")
 
 
 def checkFileExist(filename):
