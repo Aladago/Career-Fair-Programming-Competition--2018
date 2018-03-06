@@ -8,11 +8,39 @@ Date: 05/03/2018
 Python Version: 3.5.
 
 """
+"""
+The class employs two of the most popular pattern searching algorithms - 
+The Knutt-Morris-Pratt algorithm and the Boyer-Moore algorithm, both published in 
+1977. The KMP algorithm is used when the length of the pattern is below a certain arbitrary threshold.
+The full version of Boyer-Moore algorithms is used. I.E, pattern re-alignments uses the two techniques:
+The bad item rule and the good suffix rule. Any of the method works independtly but the two methods wok
+well together. 
+
+References: 
+1.  Mandumula, K. K. (2011). Knuth-morris-pratt. Indiana State University. Retrieved from http://cs
+.indstate.edu/̃kmandumula/kranthi.pdf
+
+2. 
+"""
 
 
 class Task2(object):
     def __init__(self):
         super(Task2, self).__init__()
+        self._pattern = []              # pattern of the partial data file.
+
+        # The values of the following variables do not change after they are set.
+        # Setting them as instance variables modifies the functions api and
+        # reduces the time for passing references in function calls.
+        # The good thing is, each of them are only actually constructed depending on
+        # algorithm being used. eg. if Knutt-Morris-Pratt(kmp) is used, bm_god_suffix and
+        # and bad_item_skips are not constructed.
+
+        # All of them are constructed from self._pattern in linear time.
+
+        self._kmp_suffix = []           # the skip suffix values of the pattern for kmp algorithm.
+        self._bm_good_suffix = []       # The good suffix table of the pattern for boyer-more
+        self._bad_item_skips = {}       # The bad item skip values of the patten for boyer-moore
 
     def read_data(self, complex_ebola_file, partial_data_file):
         """
@@ -26,12 +54,11 @@ class Task2(object):
             dic ={a:{i:[[date], [val]]}} where 'a' is a locality = country + locality, 'i' is one of the
             two possible indicators (cumulative_cases, cumulative_deaths)
         """
-        pattern = []
         complex_data_dic = {}
 
         with open(partial_data_file, encoding='utf-8-sig') as partial_data:
             for row in partial_data:
-                pattern.append(row.split()[0])
+                self._pattern.append(row.split()[0])
 
         with open(complex_ebola_file) as complex_data:
             complex_data.__next__()
@@ -51,7 +78,7 @@ class Task2(object):
                 else:
                     complex_data_dic[local_key] = {indicator: [[row[3]], [value]]}
 
-        return pattern, complex_data_dic
+        return complex_data_dic
 
     def mine(self, complex_ebola_file, partial_data_file):
         """
@@ -66,9 +93,21 @@ class Task2(object):
             start_date: The start date of the observed data
             end_date: The end data of the observed data.
         """
-        pattern, complex_data_dic = self.read_data(complex_ebola_file, partial_data_file)
-        suffix = self.suffix(pattern)
-        ln_pattern = len(pattern)
+        complex_data_dic = self.read_data(complex_ebola_file, partial_data_file)
+
+        ln_pattern = len(self._pattern)
+        use_kmp = False
+
+        # The size threshold of 10 is set arbitrarily.
+        if ln_pattern < 10:
+            # calling this suffix() modifies the contents of self._kmp_suffix
+            self.suffix()
+            use_kmp = True
+        else:
+            # calling these two functions modifies the contents of self_bad_item_skips
+            # self._bm_good_suffix
+            self.bad_item_list()
+            self.suffix_table_BM()
 
         for local, row in complex_data_dic.items():
             for indicator, vals in row.items():
@@ -78,14 +117,211 @@ class Task2(object):
                 # if there's the possibility that the sample appeared in multiple localities
                 # in complex data, only the first observed pattern is considered
                 if len(vals[1]) >= ln_pattern:
-                    kpmindex = self.kmp(pattern=pattern, suffixlist=suffix, vals=vals[1])
-                    if kpmindex > -1:
-                        start_date = vals[0][kpmindex]
+                    search_index = self.search_pattern(vals[1], use_kmp)
+                    if search_index > -1:
+                        start_date = vals[0][search_index]
                         return local, indicator, start_date
 
         # If sample is indeed a sample of the data, the pattern will be discovered
         # but in the unlikely event of patterns absence, return dummy text
         return "No ", "pattern", "found"
+
+    def search_pattern(self, values, use_kmp=True):
+        """
+        This method defines a consistent API for the two search algorithms.
+        This allows mine to called each of the methods without first checking which one is good
+        :param values: The values to search from for self._pattern
+        :param use_kmp: A boolean indicating which algorithm to use for the search. The default is set to
+            use knutt-morris-pratt.
+        :return:
+        """
+        if use_kmp:
+            return self.kmp(values)
+        else:
+            return self.boyer_moore(values)
+
+    def kmp(self, values):
+        """
+        The knutt-Morris-Pratt algorithm for pattern matching. The algorithm
+        searches for patterns in a text by intelligently avoiding repetitions.
+        First, a suffix pattern is built and that suffix then use to index the
+        pattern for searching.
+
+        :param values:  The values to search in for the pattern. The len of values
+         must be at least equal to the length of pattern.
+        :return:
+            An integer >= 0 indicating the starting index of pattern in vals if found. Return
+            -1 otherwise
+        """
+
+        ln = len(values)
+        ln_pattern = len(self._pattern)
+
+        # length of text must be greater than or equal to the pattern we are searching for
+        if ln_pattern > ln:
+            return -1
+
+        i = 0  # index for vals
+        j = 0  # index for partern. can never go beyond ln_pattern
+
+        # 1. if there is a match between current item in pattern and current item in vals,
+        #  move to next items and compare.
+        # 2. Otherwise check whether we've already found the pattern in vals
+        # 3. If we haven't found the pattern, a mis-match occurred
+        #  a. if there's still items left in vals to search, get the suffix value of j
+        # ( cannot be greater than j due to the definition of suffices)
+        # start from that suffice and search again, effectively skipping the suffix at the beginning
+        # b. If there are no items left to search, the pattern does not exist. return -1
+
+        while i < ln:
+            if self._pattern[j] == values[i]:
+                j += 1
+                i += 1
+            if j == ln_pattern:
+                return i - j
+
+            elif i < ln and self._pattern[j] != values[i]:
+                if j != 0:
+                    j = self._kmp_suffix[j - 1]
+                else:
+                    i = i + 1
+        return - 1
+
+    def boyer_moore(self, values):
+        """
+        A boyer-moore search technique. Works very well for large patterns due to bigger skips.
+        :param values:
+        :return: The starting index of the pattern in text on success. returns -1 otherwise
+        """
+
+        ln_pattern = len(self._pattern)
+        n = len(values)
+
+        index = 0
+
+        while index <= n - ln_pattern:
+            unmatched_end = ln_pattern - 1
+
+            while unmatched_end >= 0 and self._pattern[unmatched_end] == values[index + unmatched_end]:
+                unmatched_end -= 1
+
+            # we have found the pattern at index
+            if unmatched_end < 0:
+                return index
+            else:
+                mismatch = values[index + unmatched_end]
+                # It's possible the mismatched item does not appear in the text at all.
+                # calling the dictionary on it will raise an error but but setting
+                # the 'skip' step to -1 will enable us to make a step of unmatched_index + 1
+                # for all mismatches which do not appear in the pattern
+                step = -1
+                try:
+                    step = self._bad_item_skips[mismatch]
+                except KeyError:
+                    pass
+                # avoid backward steps in case step is bigger than unmatched_index
+
+                step = max(1, unmatched_end - step)
+                index = index + max(step, self._bm_good_suffix[unmatched_end + 1])
+
+        return -1
+
+    def suffix(self):
+        """
+        A method to compute the suffix list of size = len(pattern).
+        The suffix is built according to the kmp algorithm description.
+        :return: The suffix to be used for computing the kmp pattern skip indices
+        """
+        # generate a list of zeros of the same length as the pattern.
+        # each item in the pattern has a skip value in case of mismatch
+        self._kmp_suffix = [0] * len(self._pattern)
+
+        # The first value of the pattern has no suffix
+        j = 0
+        self._kmp_suffix[0] = 0
+        ln = len(self._pattern)
+        i = 1
+
+        # 1. If a word at i matches another behind it, set the suffix at
+        # i to the position of that word and increment both i and j.
+        # 2. Otherwise,
+        # a. if j is not at the beginning of the pattern, get the suffix
+        # of the position immediately before j and continue matching.
+        # b. otherwise, set the suffix at the current index, i to zero.
+        # index 0 is a special case of b.
+
+        while i < ln:
+            if self._pattern[j] != self._pattern[i]:
+                if j != 0:
+                    j = self._kmp_suffix[j - 1]
+                else:
+                    self._kmp_suffix[i] = 0
+                    i = i + 1
+            else:
+                self._kmp_suffix[i] = j + 1
+                i = i + 1
+                j = j + 1
+
+    def bad_item_list(self):
+        """
+        A method for pre-processing the skip values for
+        the bad item rule of Boyer-Moore's algorithm
+        :return:
+            : Method modifies the contents of self._bad_item_skips by setting them
+            to the proper.
+        """
+        ln_pattern = len(self._pattern)
+
+        # keep values to be used for skipping in case of mismatches.
+        for i in range(ln_pattern):
+            self._bad_item_skips[self._pattern[i]] = i
+
+    def suffix_table_BM(self):
+        ln = len(self._pattern)
+
+        # suffix table to determine max skips for suffices.
+        self._bm_good_suffix = [0] * (ln + 1)
+        # hold borders of suffices which are prefixes too.
+        borders = [0] * (ln + 1)
+
+        s_index = ln  # indexing the suffix_skip list
+        b_index = ln + 1  # indexing the border position list
+
+        borders[s_index] = b_index  # the first item on the right has no suffix
+
+        while s_index > 0:
+            while b_index <= ln and self._pattern[s_index - 1] != self._pattern[b_index - 1]:
+
+                # since there is a suffix, check whether there isn't a shorter suffix which has
+                # already been set at this position.
+                # set it to the length of this suffix ( suffix_border_index - suffix_index) if
+                # has not been set
+                # Update the suffix_border index to its current border value irrespective of
+                # the value was previously set or not
+
+                if self._bm_good_suffix[b_index] == 0:
+                    self._bm_good_suffix[b_index] = b_index - s_index
+
+                b_index = borders[b_index]
+
+            # update indices.
+            s_index = s_index - 1
+            b_index = b_index - 1
+
+            # border at current suffix index is the value of the border index.
+            borders[s_index] = b_index
+
+        # update the suffix skip values for items in the pattern next to each other:
+        # This shows phenomenon seen where suffix_skips[i] == 0
+        same_next_items_skip = borders[0]
+        for i in range(ln):
+            if self._bm_good_suffix[i] == 0:
+                self._bm_good_suffix[i] = same_next_items_skip
+
+            # When current index passes the skip length of same_item,
+            # update the skip length of same next items
+            if i == same_next_items_skip:
+                same_next_items_skip = borders[i]
 
     def task2(self, complex_ebola_file, partial_data_file):
         """
@@ -107,92 +343,6 @@ class Task2(object):
             results.write(indicator + "\n")
             results.write(start_date + "\n")
             results.write(str(int((time.time() - time_start) * millseconds_multipler)) + "\n")
-
-    def kmp(self, pattern, suffixlist, vals):
-        """
-        The knott-Morris-Pratt algorithm for pattern matching. The algorithm
-        searches for patterns in a text by intelligently avoiding repetitions.
-        First, a suffix pattern is built and that suffix then use to index the
-        pattern for searching.
-        :param pattern: The pattern to search for. It's a list of the partial data
-
-        :param suffixlist: The suffix built for this pattern. Suffix is passed as a paramter because
-        this method is called many times for the same pattern. This way suffix is built once and used
-        :param vals:  The vals to search in for the pattern. The len of vals must be at least equal to
-        the length of pattern.
-        :return:  An integer value >= 0 indicating the starting index of pattern in vals if found. Return
-        -1 otherwise
-
-        """
-        ln = len(vals)
-        ln_pattern = len(pattern)
-
-        # length of text must be greater than or equal to the pattern we are searching for
-        if ln_pattern > ln:
-            return -1
-
-        i = 0  # index for vals
-        j = 0  # index for partern. can never go beyond ln_pattern
-
-        # 1. if there is a match between current item in pattern and current item in vals,
-        #  move to next items and compare.
-        # 2. Otherwise check whether we've already found the pattern in vals
-        # 3. If we haven't found the pattern, a mis-match occurred
-        #  a. if there's still items left in vals to search, get the suffix value of j
-        # ( cannot be greater than j due to the definition of suffices)
-        # start from that suffice and search again, effectively skipping the suffix at the beginning
-        # b. If there are no items left to search, the pattern does not exist. return -1
-
-        while i < ln:
-            if pattern[j] == vals[i]:
-                j += 1
-                i += 1
-            if j == ln_pattern:
-                return i - j
-
-            elif i < ln and pattern[j] != vals[i]:
-                if j != 0:
-                    j = suffixlist[j - 1]
-                else:
-                    i = i + 1
-        return - 1
-
-    def suffix(self, pattern):
-        """
-        A method to compute the suffix list of size = len(pattern).
-        The suffix is built according to the kmp algorithm description.
-        :param pattern: The pattern to build the suffix for
-        :return: The suffix to be used for computing the kmp pattern skip indices
-        """
-        # get a copy of pattern for suffix, pattern values will be overridden
-        suffix = list.copy(pattern)
-        # The first value of the pattern has no suffix
-        j = 0
-        suffix[0] = 0
-        ln = len(pattern)
-        i = 1
-
-        # 1. If a word at i matches another behind it, set the suffix at
-        # i to the position of that word and increment both i and j.
-        # 2. Otherwise,
-        # a. if j is not at the beginning of the pattern, get the suffix
-        # of the position immediately before j and continue matching.
-        # b. otherwise, set the suffix at the current index, i to zero.
-        # index 0 is a special case of b.
-
-        while i < ln:
-            if pattern[j] != pattern[i]:
-                if j != 0:
-                    j = suffix[j - 1]
-                else:
-                    suffix[i] = 0
-                    i = i + 1
-            else:
-                suffix[i] = j + 1
-                i = i + 1
-                j = j + 1
-
-        return suffix
 
 
 def checkFileExist(filename):
