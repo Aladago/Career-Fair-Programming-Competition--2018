@@ -1,5 +1,5 @@
 import sys  # for command line arguments
-import time  # for timing
+import time # for timing
 from os.path import isfile
 
 """
@@ -13,7 +13,7 @@ The class employs two of the most popular pattern searching algorithms -
 The Knutt-Morris-Pratt algorithm and the Boyer-Moore algorithm, both published in 
 1977. The KMP algorithm is used when the length of the pattern is below a certain arbitrary threshold.
 The full version of Boyer-Moore algorithms is used. I.E, pattern re-alignments uses the two techniques:
-The bad item rule and the good suffix rule. Any of the method works independtly but the two methods wok
+The bad item rule and the good suffix rule. Any of the method works independently but the two methods wok
 well together. 
 
 References: 
@@ -28,6 +28,7 @@ class Task2(object):
     def __init__(self):
         super(Task2, self).__init__()
         self._pattern = []              # pattern of the partial data file.
+        self._pattern_ln = 0           # the length of the pattern
 
         # The values of the following variables do not change after they are set.
         # Setting them as instance variables modifies the functions api and
@@ -44,31 +45,31 @@ class Task2(object):
 
     def read_data(self, complex_ebola_file, partial_data_file):
         """
-        This function reads in the complex data and the sample for task2
-
+        This function reads in the complex data and the sample for task2. It performs pre-processing
+        tasks as well by generating self._pattern and creating a dictionary out of the complex file
         :param complex_ebola_file:
         :param partial_data_file:
         :return:
-         partern: A list containing the values of the sample as a 'pattern'
          complex_data_dic: Is a nested dictionary representation of the complex file. It has the format
             dic ={a:{i:[[date], [val]]}} where 'a' is a locality = country + locality, 'i' is one of the
             two possible indicators (cumulative_cases, cumulative_deaths)
         """
-        complex_data_dic = {}
 
         with open(partial_data_file, encoding='utf-8-sig') as partial_data:
-            for row in partial_data:
-                self._pattern.append(row.split()[0])
+            self._pattern = [row.split()[0] for row in partial_data]
+
+        self._pattern_ln = len(self._pattern)
+        complex_data_dic = {}
 
         with open(complex_ebola_file) as complex_data:
             complex_data.__next__()
             for row in complex_data:
                 row = row.split(",")
-                local_key = row[0] + " " + row[1]
+                local_key = " ".join(row[0:2])
                 indicator = row[2]
-                value = row[4].rstrip("\n")
+                value = row[4][0:-1]
 
-                # add new keys for both locals and indicators or update as necessary
+                # add new keys for both locals and indicators or update values as necessary
                 if local_key in complex_data_dic:
                     if indicator in complex_data_dic[local_key]:
                         complex_data_dic[local_key][indicator][1].append(value)
@@ -95,19 +96,17 @@ class Task2(object):
         """
         complex_data_dic = self.read_data(complex_ebola_file, partial_data_file)
 
-        ln_pattern = len(self._pattern)
-        use_kmp = False
-
         # The size threshold of 10 is set arbitrarily.
-        if ln_pattern < 10:
-            # calling this suffix() modifies the contents of self._kmp_suffix
+        if self._pattern_ln < 10:
+            # calling suffix() modifies the contents of self._kmp_suffix
             self.suffix()
             use_kmp = True
         else:
             # calling these two functions modifies the contents of self_bad_item_skips
             # self._bm_good_suffix
             self.bad_item_list()
-            self.suffix_table_BM()
+            self.bm_suffix_table()
+            use_kmp = False
 
         for local, row in complex_data_dic.items():
             for indicator, vals in row.items():
@@ -116,7 +115,7 @@ class Task2(object):
                 # if pattern length is indeed less than vals[1], compute kmpindex & take a decision
                 # if there's the possibility that the sample appeared in multiple localities
                 # in complex data, only the first observed pattern is considered
-                if len(vals[1]) >= ln_pattern:
+                if len(vals[1]) >= self._pattern_ln:
                     search_index = self.search_pattern(vals[1], use_kmp)
                     if search_index > -1:
                         start_date = vals[0][search_index]
@@ -155,10 +154,9 @@ class Task2(object):
         """
 
         ln = len(values)
-        ln_pattern = len(self._pattern)
 
         # length of text must be greater than or equal to the pattern we are searching for
-        if ln_pattern > ln:
+        if self._pattern_ln > ln:
             return -1
 
         i = 0  # index for vals
@@ -185,6 +183,7 @@ class Task2(object):
                     j = self._kmp_suffix[j - 1]
                 else:
                     i = i + 1
+        # pattern has not been found
         return - 1
 
     def boyer_moore(self, values):
@@ -194,16 +193,14 @@ class Task2(object):
         :return: The starting index of the pattern in text on success. returns -1 otherwise
         """
 
-        ln_pattern = len(self._pattern)
-        n = len(values)
-
+        ln = len(values)
         index = 0
 
-        while index <= n - ln_pattern:
-            unmatched_end = ln_pattern - 1
+        while index <= ln - self._pattern_ln:
+            unmatched_end = self._pattern_ln - 1
 
             while unmatched_end >= 0 and self._pattern[unmatched_end] == values[index + unmatched_end]:
-                unmatched_end -= 1
+                unmatched_end = unmatched_end - 1
 
             # we have found the pattern at index
             if unmatched_end < 0:
@@ -219,11 +216,12 @@ class Task2(object):
                     step = self._bad_item_skips[mismatch]
                 except KeyError:
                     pass
-                # avoid backward steps in case step is bigger than unmatched_index
 
+                # avoid backward steps in case step is bigger than unmatched_index
                 step = max(1, unmatched_end - step)
                 index = index + max(step, self._bm_good_suffix[unmatched_end + 1])
 
+        # pattern is not in values
         return -1
 
     def suffix(self):
@@ -234,12 +232,11 @@ class Task2(object):
         """
         # generate a list of zeros of the same length as the pattern.
         # each item in the pattern has a skip value in case of mismatch
-        self._kmp_suffix = [0] * len(self._pattern)
+        self._kmp_suffix = [0] * self._pattern_ln
 
         # The first value of the pattern has no suffix
         j = 0
         self._kmp_suffix[0] = 0
-        ln = len(self._pattern)
         i = 1
 
         # 1. If a word at i matches another behind it, set the suffix at
@@ -250,7 +247,7 @@ class Task2(object):
         # b. otherwise, set the suffix at the current index, i to zero.
         # index 0 is a special case of b.
 
-        while i < ln:
+        while i < self._pattern_ln:
             if self._pattern[j] != self._pattern[i]:
                 if j != 0:
                     j = self._kmp_suffix[j - 1]
@@ -270,15 +267,18 @@ class Task2(object):
             : Method modifies the contents of self._bad_item_skips by setting them
             to the proper.
         """
-        ln_pattern = len(self._pattern)
-
         # keep values to be used for skipping in case of mismatches.
-        for i in range(ln_pattern):
+        for i in range(self._pattern_ln):
             self._bad_item_skips[self._pattern[i]] = i
 
-    def suffix_table_BM(self):
-        ln = len(self._pattern)
-
+    def bm_suffix_table(self):
+        """
+        This method constructs the look up table for god suffix shifts as specified by the
+        boyer-more algorithm
+        :return:
+        Modifies the contents of self._bm_good_suffix
+        """
+        ln = self._pattern_ln
         # suffix table to determine max skips for suffices.
         self._bm_good_suffix = [0] * (ln + 1)
         # hold borders of suffices which are prefixes too.
@@ -338,14 +338,14 @@ class Task2(object):
 
         # time.time() returns seconds
         mills = 1e3
+        contents = [local, indicator, start_date]
         with open(filename, 'wt') as results:
-            results.write(local + "\n")
-            results.write(indicator + "\n")
-            results.write(start_date + "\n")
-            results.write(str((time.time() - time_start) * mills) + "\n")
+            results.write("\n".join(contents))
+            # write overall runtime last
+            results.write("\n" + str((time.time() - time_start) * mills) + "\n")
 
 
-def checkFileExist(filename):
+def check_file_exist(filename):
     """
     A untility method for checking whether a passed string is the name of a valid file
     :param filename: The name of the file
@@ -364,8 +364,8 @@ if __name__ == '__main__':
         sys.exit()
 
     # very that files can be opened
-    checkFileExist(complex_filename)
-    checkFileExist(partial_filename)
+    check_file_exist(complex_filename)
+    check_file_exist(partial_filename)
 
     # start timer and instantiate task2 and execute functions.
     global time_start
