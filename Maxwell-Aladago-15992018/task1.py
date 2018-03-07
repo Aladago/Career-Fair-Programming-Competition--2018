@@ -102,7 +102,7 @@ class Task1(object):
         # special case of index 0
         if ln >= 2 and rates[0][1] > rates[1][1]:
             peaks.append(rates[0][0])
-        for i  in range(1,ln-1):
+        for i in range(1,ln-1):
             cur_rate = rates[i][1]
             if cur_rate > rates[i - 1][1] and cur_rate > rates[i + 1][1]:
                 peaks.append(rates[i][0])
@@ -265,8 +265,8 @@ class Task1(object):
         times = [pre_process_time, a_time, b_time, c_time, d_time, e_time, f_time]
 
         # Write answers to files
-        filename = "task1_answers-" + filename
-        timingsfile = "task1_times-" + filename
+        filename = "task1_answers-%s" % filename
+        timingsfile = "task1_times-%s" % filename
 
         mills = 1e3
         with open(filename, 'wt') as outputfile, open(timingsfile, 'wt') as timesfile:

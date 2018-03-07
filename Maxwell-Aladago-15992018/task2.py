@@ -1,5 +1,5 @@
 import sys  # for command line arguments
-import time # for timing
+import time  # for timing
 from os.path import isfile
 
 """
@@ -11,23 +11,21 @@ Python Version: 3.5.
 """
 The class employs two of the most popular pattern searching algorithms - 
 The Knutt-Morris-Pratt algorithm and the Boyer-Moore algorithm, both published in 
-1977. The KMP algorithm is used when the length of the pattern is below a certain arbitrary threshold.
-The full version of Boyer-Moore algorithms is used. I.E, pattern re-alignments uses the two techniques:
-The bad item rule and the good suffix rule. Any of the method works independently but the two methods wok
-well together. 
-
+1977. The KMP algorithm is used when the length of the pattern is below a certain 
+arbitrary threshold. I used 10 here. This implementation of Boyer-Moore algorithms uses,
+both bad item skip rule and good suffix rules for pattern re-alignments:
+Any of the method works independently through
 References: 
 1.  Mandumula, K. K. (2011). Knuth-morris-pratt. Indiana State University. Retrieved from http://cs
 .indstate.edu/̃kmandumula/kranthi.pdf
 
-2. 
 """
 
 
 class Task2(object):
     def __init__(self):
         super(Task2, self).__init__()
-        self._pattern = []              # pattern of the partial data file.
+        self._pattern = []             # pattern of the partial data file.
         self._pattern_ln = 0           # the length of the pattern
 
         # The values of the following variables do not change after they are set.
@@ -43,22 +41,29 @@ class Task2(object):
         self._bm_good_suffix = []       # The good suffix table of the pattern for boyer-more
         self._bad_item_skips = {}       # The bad item skip values of the patten for boyer-moore
 
-    def read_data(self, complex_ebola_file, partial_data_file):
+    def construct_pattern(self, partial_data_file):
         """
-        This function reads in the complex data and the sample for task2. It performs pre-processing
-        tasks as well by generating self._pattern and creating a dictionary out of the complex file
+        This method constructs a list from the partial data file.
+        The list is used as a pattern for searching.
+        :param partial_data_file: The partial ebola file
+        :return:
+            Modifies the contents of self._pattern & self._pattern_ln
+        """
+        with open(partial_data_file, encoding='utf-8-sig') as partial_data:
+            self._pattern = [row.split()[0] for row in partial_data]
+
+        self._pattern_ln = len(self._pattern)
+
+    def read_complex_data(self, complex_ebola_file):
+        """
+        This function reads in the complex data. It performs pre-processing tasks as well
+         by generating creating a dictionary out of the complex file
         :param complex_ebola_file:
-        :param partial_data_file:
         :return:
          complex_data_dic: Is a nested dictionary representation of the complex file. It has the format
             dic ={a:{i:[[date], [val]]}} where 'a' is a locality = country + locality, 'i' is one of the
             two possible indicators (cumulative_cases, cumulative_deaths)
         """
-
-        with open(partial_data_file, encoding='utf-8-sig') as partial_data:
-            self._pattern = [row.split()[0] for row in partial_data]
-
-        self._pattern_ln = len(self._pattern)
         complex_data_dic = {}
 
         with open(complex_ebola_file) as complex_data:
@@ -70,62 +75,53 @@ class Task2(object):
                 value = row[4][0:-1]
 
                 # add new keys for both locals and indicators or update values as necessary
-                if local_key in complex_data_dic:
-                    if indicator in complex_data_dic[local_key]:
-                        complex_data_dic[local_key][indicator][1].append(value)
+                # Inner try deals with missing indicator key but presence of local_key.
+                # Inner try block throws error in except when local_key does not exist.
+                # Outer except catches the error and creates the required object.
+                # this's marginally faster than using if statements because keys which exist already
+                # are not hashed twice during updates.
+                try:
+                    try:
                         complex_data_dic[local_key][indicator][0].append(row[3])
-                    else:
+                        complex_data_dic[local_key][indicator][1].append(value)
+                    except KeyError:
                         complex_data_dic[local_key][indicator] = [[row[3]], [value]]
-                else:
+                except KeyError:
                     complex_data_dic[local_key] = {indicator: [[row[3]], [value]]}
 
         return complex_data_dic
 
-    def mine(self, complex_ebola_file, partial_data_file):
+    def mine(self, complex_data_dic, use_kmp=False):
         """
         This method digs into the data searching for a pattern the data. If found, all the
-        required paramters are returned. Calls the read_data() module() and kmp module()
+        required parameters are returned. Calls search pattern()
 
-        :param complex_ebola_file: The name of the complex data file
-        :param partial_data_file: The name of the sample data
+        :param complex_data_dic: An object of type dict, built from the complex data file.
+        :param use_kmp: boolean indicating whether to use kmp or boyer-moore. default is False
         :return:
-            local: The locality of the data: concatenation of country and localty separated by space
+            local: The locality of the data: concatenation of country and locality separated by space
             indicator: A string indicated whether the extracted sample is for deaths or cases
             start_date: The start date of the observed data
             end_date: The end data of the observed data.
         """
-        complex_data_dic = self.read_data(complex_ebola_file, partial_data_file)
-
-        # The size threshold of 10 is set arbitrarily.
-        if self._pattern_ln < 10:
-            # calling suffix() modifies the contents of self._kmp_suffix
-            self.suffix()
-            use_kmp = True
-        else:
-            # calling these two functions modifies the contents of self_bad_item_skips
-            # self._bm_good_suffix
-            self.bad_item_list()
-            self.bm_suffix_table()
-            use_kmp = False
-
         for local, row in complex_data_dic.items():
-            for indicator, vals in row.items():
+            for indicator, values in row.items():
 
                 # sample length cannot be greater than the len of the document it was extracted from.
                 # if pattern length is indeed less than vals[1], compute kmpindex & take a decision
                 # if there's the possibility that the sample appeared in multiple localities
                 # in complex data, only the first observed pattern is considered
-                if len(vals[1]) >= self._pattern_ln:
-                    search_index = self.search_pattern(vals[1], use_kmp)
+                if len(values[1]) >= self._pattern_ln:
+                    search_index = self.search_pattern(values[1], use_kmp)
                     if search_index > -1:
-                        start_date = vals[0][search_index]
+                        start_date = values[0][search_index]
                         return local, indicator, start_date
 
         # If sample is indeed a sample of the data, the pattern will be discovered
         # but in the unlikely event of patterns absence, return dummy text
         return "No ", "pattern", "found"
 
-    def search_pattern(self, values, use_kmp=True):
+    def search_pattern(self, values, use_kmp=False):
         """
         This method defines a consistent API for the two search algorithms.
         This allows mine to called each of the methods without first checking which one is good
@@ -175,7 +171,7 @@ class Task2(object):
             if self._pattern[j] == values[i]:
                 j += 1
                 i += 1
-            if j == ln_pattern:
+            if j == self._pattern_ln:
                 return i - j
 
             elif i < ln and self._pattern[j] != values[i]:
@@ -280,6 +276,7 @@ class Task2(object):
         """
         ln = self._pattern_ln
         # suffix table to determine max skips for suffices.
+        # suffix table should have dimension ln + 1
         self._bm_good_suffix = [0] * (ln + 1)
         # hold borders of suffices which are prefixes too.
         borders = [0] * (ln + 1)
@@ -332,9 +329,23 @@ class Task2(object):
         """
 
         global time_start
-        local, indicator, start_date = self.mine(complex_ebola_file, partial_data_file)
+        self.construct_pattern(partial_data_file)
+        complex_data_dic = self.read_complex_data(complex_ebola_file)
 
-        filename = "task2_result-" + partial_data_file
+        # make a choice to use knutt-morris-pratt for search or boyer-morris
+        # calling suffix() modifies the contents of self._kmp_suffix.
+        # bad_item_list() modifies the contents of self_bad_item_skips
+        # .bm_suffix_table() modifies the contents of self._bm_good_suffix
+        if self._pattern_ln < 10:
+            self.suffix()
+            use_kmp = True
+        else:
+            self.bad_item_list()
+            self.bm_suffix_table()
+            use_kmp = False
+
+        local, indicator, start_date = self.mine(complex_data_dic, use_kmp)
+        filename = "task2_result-%s" % partial_data_file
 
         # time.time() returns seconds
         mills = 1e3
@@ -347,7 +358,7 @@ class Task2(object):
 
 def check_file_exist(filename):
     """
-    A untility method for checking whether a passed string is the name of a valid file
+    A utility method for checking whether a passed string is the name of a valid file
     :param filename: The name of the file
     """
     if not isfile(filename):
@@ -363,10 +374,9 @@ if __name__ == '__main__':
         print("Error: The program requires a two strings as arguments")
         sys.exit()
 
-    # very that files can be opened
+    # verify that files can be opened
     check_file_exist(complex_filename)
     check_file_exist(partial_filename)
-
     # start timer and instantiate task2 and execute functions.
     global time_start
     time_start = time.time()
