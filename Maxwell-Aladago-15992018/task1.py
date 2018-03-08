@@ -16,7 +16,7 @@ class Task1(object):
 
     def read_data(self, filename):
         """
-        A method for open and pre-processing the data. Pre-processing step is very small
+        A method for opening and pre-processing the data. Pre-processing step is very small
         - the data is merely separated according to indicator values. i.e the values for death are separated
         from those indicating cases
 
@@ -40,11 +40,12 @@ class Task1(object):
                 elif row[2].endswith("_cases"):
                     infections_dates.append(row[3])
                     infections_vals.append(int(row[4]))
+
         return death_dates, death_vals, infections_dates, infections_vals
 
     def last_occurrence_date(self, dates, values):
         """
-        TThis method finds the occurrence of a given indicator.
+        This method finds the last occurrence of a given indicator.
         Since the values are cumulative, the last occurrence of the indicator is
         the first occurrence of the maximum value in the list
         :param dates: The recording of the date for that particular indicator
@@ -57,8 +58,7 @@ class Task1(object):
 
     def rates(self, dates, vals):
         """
-        This method answers the questions related to task 1 except the last two; the peaks are processed
-        in a different function.
+        This method computes the rates of for the given dates
         :param dates: The dates for a given indicator. eg. cumulative deaths
         :param vals: the cumulative values for the indicator
         :return:
@@ -92,14 +92,14 @@ class Task1(object):
         """
         This method runs through the data to detect the values that
         show peaks. I am working with local peaks. I.e if f(x) < f(y) > f(z) for x < y < z,
-        f(y) is counted as a peak. Also, flat planes are ignored
+        f(y) is counted as a peak. Flat planes are ignored
         :param rates: The rates of the statistics as for each recording entry
         :return: The dates of peak recordings.
         """
         ln = len(rates)
         peaks = []
 
-        # special case of index 0
+        # special case, rate at index 0
         if ln >= 2 and rates[0][1] > rates[1][1]:
             peaks.append(rates[0][0])
         for i in range(1,ln-1):
@@ -107,7 +107,7 @@ class Task1(object):
             if cur_rate > rates[i - 1][1] and cur_rate > rates[i + 1][1]:
                 peaks.append(rates[i][0])
 
-        # Another special case of last element
+        # Another special case, the last rate
         if rates[ln - 1][1] > rates[ln - 2][1]:
             peaks.append(rates[ln - 1][0])
 
@@ -122,30 +122,29 @@ class Task1(object):
         :param date: The string to get the number of days since the 'big bang'. should have the format
         'dd/mm/yyyy
         :return:
-
+            The number of days which have passed since 00/00/000 from this date
         """
+        # assume february is 28. Later add a day for each leap year in the range
+        # compute leap years for days passed february.This is only the case when the month is
+        # March (3) or above
+
+        # A leap year is divisible by both 100 and 4 or divisible by 4 but not 100.
+        # number of leap years can therefore be computed by taking the
+        # sum of the number of years divisible by 400(4*100) + the number of years divisible by
+        # 4 - those divisible by 100.
+
         date_fields = [int(df) for df in date.split("/")]
         day = date_fields[0]
         month = date_fields[1]
         year = date_fields[2]
 
-        # assume february is 28. Later add a day for each leap year in the range
         # add -1 for indexing purposes
         days_in_months = [-1, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-
-        # compute leap years for days passed february.This is only the case when the month is
-        # March (3) or above
-
-        # A leap year is said to be divisible by both 100 and 4 or divisible by 4 but not 100.
-        # number of leap years can therefore be computed by taking the
-        # sum of the number of years divisible by 400(4*100) + the number of years divisible by
-        # 4 - those divisible by 100.
-
         # all divisions are integer divisions
         if month > 2:
             num_leap_years = (year//400) + (year//4) - (year//100)
         else:
-            # do not int current year in leap year computation
+            # do not include current year in leap year computation
             y = year -1
             num_leap_years = (y// 400) + (y// 4) - (y// 100)
 
@@ -167,7 +166,7 @@ class Task1(object):
         month = d_fields[1]
         year = d_fields[2]
 
-        # add negative one for indexing purpoes
+        # add -1 for indexing purposes
         days_leap = [-1, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
         days_not_leap = [-1, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
@@ -183,7 +182,7 @@ class Task1(object):
                 day += 1
                 i += 1
 
-            # if our current month is december and we still have days
+            # if current month is december and we still have days
             # increment year. Also update months list to the year format of the
             # new year.
             if i < days_after and month == 12:
@@ -198,9 +197,9 @@ class Task1(object):
                 month += 1
                 day = 1
 
-        return str(day) +"/" + str(month) +"/" + str(year)
+        return "%d/%d/%d" % (day, month, year)
 
-    def is_leap_year(self,year):
+    def is_leap_year(self, year):
         """
         Returns true if a given year is leap year. Otherwise, returns false.
         :param year: The year to check whether it's leap. should be of type int
@@ -214,6 +213,8 @@ class Task1(object):
         It also writes the required answers to the same directory directory of this file
         :param filename: The name of the file containing the ebola data. Should have at least 5 columns
         :return:
+            Write two files task1-answers-<filename> and task1_answers-<filename> to the folder containing
+            this file.
         """
         # time.time() returns seconds
         pre_process_time = time.time()
@@ -265,11 +266,11 @@ class Task1(object):
         times = [pre_process_time, a_time, b_time, c_time, d_time, e_time, f_time]
 
         # Write answers to files
-        filename = "task1_answers-%s" % filename
-        timingsfile = "task1_times-%s" % filename
+        answers = "task1_answers-%s" % filename
+        timings = "task1_times-%s" % filename
 
         mills = 1e3
-        with open(filename, 'wt') as outputfile, open(timingsfile, 'wt') as timesfile:
+        with open(answers, 'wt') as outputfile, open(timings, 'wt') as timesfile:
             outputfile.write("\n".join(outputs))
             timesfile.write("\n".join([str(t) for t in times]))
             # Write overall time of the program last
