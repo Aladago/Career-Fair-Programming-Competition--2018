@@ -197,7 +197,7 @@ class Task1(object):
                 month += 1
                 day = 1
 
-        return "%d/%d/%d" % (day, month, year)
+        return "%02d/%02d/%d" % (day, month, year)
 
     def is_leap_year(self, year):
         """
@@ -259,8 +259,8 @@ class Task1(object):
         # organize output into list to shorten the code. They can then be index
         outputs = [
             date_last_infection, date_last_death, ebola_free_date, date_peak_irate,
-            date_peak_drate, str(numpeak_infections) + "\t" + ", ".join(peak_infection_rates_date),
-                             str(numpeak_deaths) + "\t" + ", ".join(peak_death_rates_date)
+            date_peak_drate, str(numpeak_infections) + ", " + ", ".join(peak_infection_rates_date),
+                             str(numpeak_deaths) + ", " + ", ".join(peak_death_rates_date)
         ]
 
         times = [pre_process_time, a_time, b_time, c_time, d_time, e_time, f_time]
