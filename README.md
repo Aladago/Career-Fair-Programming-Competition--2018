@@ -11,6 +11,8 @@ Running any of the task will generate output files at the root of the folder con
 
 Note: The above path specifications are for a linux system. Change path to match your system's requirements. 
 
+## Requirements
+1. The program must be run with python 3.5 or later.
 
 Additional Note:
 This submission won the competition
